@@ -66,7 +66,22 @@ gdt_descriptor:
 
 [BITS 32]
 load32:
+    mov ax, DATA_SEG
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov ss, ax
+    mov ebp, 0x00200000
+    mov esp, ebp
+
+    in al, 0x92      ; Read the value from port 0x92 (System Control Port A) into AL
+    or al, 2         ; Set bit 1 (Fast A20 Gate enable) in AL
+    out 0x92, al     ; Write the modified value back to port 0x92 to enable the A20 line
+    ; This sequence enables the A20 address line, allowing access to memory above 1MB
+
     jmp $
 
 times 510 - ($ - $$) db 0
 dw 0xAA55
+
