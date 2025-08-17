@@ -53,3 +53,39 @@ Where:
 	- sectors_per_track: Number of sectors per track
 
 This formula allows software to map CHS coordinates to a linear LBA sector number, which is then used for disk operations. Modern BIOS and hardware typically handle this conversion internally, but understanding it is useful for low-level programming and legacy systems.
+
+Read and Write Disk Interrupts (x86 Real Mode)
+----------------------------------------------
+
+In x86 real mode, disk operations are performed using BIOS interrupt `INT 0x13`. This interrupt provides several functions for reading and writing sectors on disks.
+
+**Read Sectors (Function 02h) Parameters:**
+
+================= ==============================
+Register          Description
+================= ==============================
+AH                0x02 (function: read)
+AL                Number of sectors to read
+CH                Cylinder (track) number
+CL                Sector number (starts at 1)
+DH                Head number
+DL                Drive number
+ES:BX             Buffer address for data
+================= ==============================
+
+**Write Sectors (Function 03h) Parameters:**
+
+================= ===============================
+Register          Description
+================= ===============================
+AH                0x03 (function: write)
+AL                Number of sectors to write
+CH                Cylinder (track) number
+CL                Sector number (starts at 1)
+DH                Head number
+DL                Drive number
+ES:BX             Buffer address with data
+================= ===============================
+
+.. note::
+   The DL register (drive number) is automatically set by the BIOS when the bootloader starts. For example, 0x00 typically refers to the first floppy drive, and 0x80 refers to the first hard disk. The bootloader can use this value directly to access the boot device.

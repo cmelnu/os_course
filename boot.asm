@@ -10,20 +10,6 @@ times 33 db 0      ; Reserve 33 bytes for BIOS Parameter
 start:
     jmp 0x7c0:step2    ; Jump to the 'step2' label at segment 0x7c0 (bootloader)
 
-handle_zero:
-    mov ah, 0eh
-    mov al, 'A'
-    mov bx, 0x00
-    int 0x10
-    iret
-
-handle_one:
-    mov ah, 0eh
-    mov al, 'V'
-    mov bx, 0x00
-    int 0x10
-    iret
-
 step2:
     cli                 ; Disable interrupts (clear interrupt flag)
     mov ax, 0x7c0
@@ -34,15 +20,21 @@ step2:
     mov sp, 0x7c00
     sti                 ; Enable interrupts (set interrupt flag)
 
-    mov word[ss:0x00], handle_zero   ; Store the address of handle_zero at offset 0x00 in the stack segment
-    mov word[ss:0x02], 0x7c0
+    mov ah, 2      ; Set BIOS disk interrupt function: read sectors (INT 13h, AH=2)
+    mov al, 1      ; Number of sectors to read (1 sector)
+    mov ch, 0      ; Cylinder (track) number (0)
+    mov cl, 2      ; Sector number (2; sectors start at 1)
+    mov dh, 0      ; Head number (0)
+    mov bx, buffer    ; Set BX to the offset address of 'buffer' where disk data will be read into
+    int 0x13
+    jc error        ; Jump to 'error' if the carry flag is set (indicates disk read failure after INT 13h)
 
-    mov word[ss:0x04], handle_one    ; Store the address of handle_one at offset 0x00 in the stack segment
-    mov word[ss:0x06], 0x7c0
+    mov si, buffer
+    call print
+    jmp $
 
-    int 1    ; Software interrupt 1 (calls interrupt vector 1, typically the divide-by-zero handler). This will jump to ss:0x04
-
-    mov si, message
+error:
+    mov si, error_message
     call print
     jmp $
 
@@ -64,7 +56,9 @@ print_char:
     int 0x10        ; Call BIOS teletype output (INT 10h, AH=0Eh) to print character
     ret
 
-message: db 'Hello, world!', 0
+error_message: db 'Failed to load sector', 0
 
 times 510 - ($ - $$) db 0
 dw 0xAA55
+
+buffer:
