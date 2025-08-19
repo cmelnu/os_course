@@ -16,27 +16,31 @@ This repository contains code and resources for a **Kernel Development Course** 
 
 ## System Compatibility
 
-This project is developed and tested on **Ubuntu 20.04 LTS (Focal Fossa)**.
 
-## Dependencies
+This project is developed and tested on **Ubuntu 20.04 LTS (Focal Fossa)**. You can also use the provided Dockerfile to set up a reproducible build environment.
 
-To build and run this project, you need:
 
-- **NASM** (Netwide Assembler): Used to assemble the bootloader (`boot.asm`).
-- **CMake**: Modern build system for managing builds and dependencies.
-- **QEMU** (optional): Emulator for testing the bootloader binary.
+## Build Environment (Recommended: Docker)
 
-Install on Ubuntu:
+You can build and run this project in a reproducible environment using Docker. The provided `Dockerfile` sets up Ubuntu 20.04 with all required dependencies, including the OSDev cross-compiler toolchain, NASM, CMake, QEMU, and more.
+
+### Build the Docker image:
 ```sh
-sudo apt update
-sudo apt install nasm cmake qemu-system-x86
+docker build -t osdev-kernel-course .
 ```
+
+### Run the container (mount your workspace):
+```sh
+docker run -it --rm -v "$PWD":/workspace osdev-kernel-course
+```
+
+This will drop you into a shell with all tools pre-installed. You can then build and test the kernel as described below.
 
 ## Directory Structure
 
 ```
-├── set_env.sh               # Script to set environment variables for cross-compiling
-├── create_cross_compiler.sh # Script to download, build, and install binutils and GCC cross-compiler
+├── set_env.sh               # Script to set environment variables for cross-compiling (legacy)
+├── Dockerfile               # Docker build file for reproducible environment and cross-compiler toolchain
 ├── bin/            		 # Output binaries (e.g., boot.bin)
 ├── build/          		 # Build files (CMake, etc.)
 ├── docs/           		 # Sphinx documentation
@@ -48,14 +52,14 @@ sudo apt install nasm cmake qemu-system-x86
 
 ## Building the Bootloader
 
-1. Install NASM and CMake if not already installed.
+1. If using Docker, start the container as described above.
 2. Run:
-	 ```sh
-	 mkdir build && cd build
-	 cmake ..
-	 make
-	 ```
-	 The bootloader binary will be generated at `bin/boot.bin`.
+	```sh
+	mkdir build && cd build
+	cmake ..
+	make
+	```
+	The bootloader binary will be generated at `bin/boot.bin`.
 
 ## Running in QEMU
 
