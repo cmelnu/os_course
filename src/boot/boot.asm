@@ -30,7 +30,7 @@ step2:
         mov eax, cr0             ; Move current value of control register CR0 into EAX
         or eax, 0x0001           ; Set the PE (Protection Enable) bit to enable protected mode
         mov cr0, eax             ; Write the updated value back to CR0
-        jmp CODE_SEG:load32      ; Far jump to flush the instruction pipeline and switch to protected mode (CS=CODE_SEG)
+        jmp CODE_SEG:load32
 
 ;Global Descriptor Table
 
@@ -66,21 +66,69 @@ gdt_descriptor:
 
 [BITS 32]
 load32:
-    mov ax, DATA_SEG
-    mov ds, ax
-    mov es, ax
-    mov fs, ax
-    mov gs, ax
-    mov ss, ax
-    mov ebp, 0x00200000
-    mov esp, ebp
+    mov eax, 1             ; Set EAX to 1: LBA address of the first sector to read from disk
+    mov ecx, 100           ; Set ECX to 100: number of sectors to read
+    mov edi, 0x0100000     ; Set EDI to 0x0100000: destination address in memory (where data will be loaded)
+    call ata_lba_read      ; Call the ata_lba_read routine to perform the disk read using LBA
+    jmp CODE_SEG:0x0100000 ; Jump to the loaded code segment at 0x0100000
 
-    in al, 0x92      ; Read the value from port 0x92 (System Control Port A) into AL
-    or al, 2         ; Set bit 1 (Fast A20 Gate enable) in AL
-    out 0x92, al     ; Write the modified value back to port 0x92 to enable the A20 line
-    ; This sequence enables the A20 address line, allowing access to memory above 1MB
+ata_lba_read:
+    mov ebx, eax  ; Backup the LBA
+    ; Send the highest 8 bits of the LBA to hard disk controller
+    shr eax, 24
+    or eax, 0xE0      ; Set the drive number (0xE0 for primary master)
+    mov dx, 0x1F6     ; Set DX to 0x1F6: Select the drive/head register port for ATA (IDE) controller
+    out dx, al        ; Finished sending the highest 8 bits of data
 
-    jmp $
+    ; Send the total sectors to read
+    mov eax, ecx      ; Copy the number of sectors to read (from ECX) into EAX
+    mov dx, 0x1F2     ; Set DX to 0x1F2: sector count register port for ATA (IDE) controller
+    out dx, al        ; Send the sector count (number of sectors to read) to
+    ; Finished sending the total sectors to read
+
+    ; Send more bits of the LBA.
+    mov eax, ebx       ; Restore the backup LBA
+    mov dx, 0x1F3      ; Set DX to 0x1F3: port for sending the lowest 8 bits of the LBA address to the ATA (IDE) controller
+    out dx, al         ; Send the lowest 8 bits of the LBA
+    ; Finished sending more bits of the LBA
+
+    ; Send more bits of the LBA
+    mov dx, 0x1F4    ; Set DX register to 0x1F4 (I/O port for primary ATA/IDE data register)
+    mov eax, ebx  ; Restore the backup LBA
+    shr eax, 8
+    out dx, al
+    ; Finished sending more bits of the LBA
+
+    ; Send the upper 16 bits of the LBA
+    mov dx, 0x1F5    ; Set DX register to 0x1F5 (I/O port for primary ATA/IDE sector count register)
+    mov eax, ebx     ; Restore the backup LBA
+    shr eax, 16
+    out dx, al
+
+    mov dx, 0x1F7
+    mov al, 20
+    out dx, al
+
+    ; Read all sectors into memory
+
+.next_sector:
+    push ecx
+
+;Checking if we need to read
+.try_again:
+    mov dx, 0x1F7      ; Set DX to 0x1F7: status register port for ATA (IDE) controller
+    in al, dx          ; Read status register from ATA (IDE) controller
+    test al, 8
+    jz .try_again
+
+; We need to read 256 words at a time
+    mov ecx, 256
+    mov dx, 0x1F0       ; Set DX to 0x1F0: data register port for ATA (IDE) controller
+    rep insw            ; INSW: input word from I/O port specified in DX into memory location specified in ES:EDI
+    pop ecx             ; Restore ecx value 100 which is the amount of sectors to read
+    loop .next_sector
+    ; End of reading sectors into memory
+    ret
 
 times 510 - ($ - $$) db 0
 dw 0xAA55
